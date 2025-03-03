@@ -1,4 +1,3 @@
-import time
 import numpy as np
 import pyopencl as cl
 
@@ -12,7 +11,7 @@ class Controller:
         self.queue = cl.CommandQueue(self.context, properties=cl.command_queue_properties.PROFILING_ENABLE)
         self.logger = Logger(__name__)
 
-    def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
         output = np.zeros_like(image)
@@ -43,7 +42,7 @@ class Controller:
 
         # Measure execution time
         elapsed_time = (event.profile.end - event.profile.start) / 1e6
-        self.logger.info(f"Execution time: {elapsed_time} ms")
+        return output, elapsed_time
 
     def load_program(self, program_file: str):
         with open(program_file, 'r') as f:

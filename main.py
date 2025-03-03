@@ -1,5 +1,4 @@
 import numpy as np
-import pyopencl as cl
 
 from include.Logger import Logger
 from include.Comparator import Comparator
@@ -14,9 +13,11 @@ def cpu_convolve(comparator: Comparator) -> np.ndarray:
 
     return output
 
-def opencl_convolve(Controller: Controller):
-    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE)          # Random image
-    kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]]) # Simple Sobel operator
+def opencl_convolve(controller: Controller) -> tuple:
+    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)           # Random image
+    kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)   # Simple Sobel operator
+
+    return controller.convolve2d(image, kernel)
 
 if __name__ == "__main__":
     # Create variables
@@ -25,8 +26,7 @@ if __name__ == "__main__":
     controller = Controller()
 
     # Perform convolution on CPU
-    output = cpu_convolve(comparator)
-    logger.info(f"CPU output: {output}")
+    cpu_output, cpu_time = cpu_convolve(comparator)
 
     # Perform convolution on OpenCL
     controller.load_program("kernels/convolution.cl")
@@ -34,4 +34,9 @@ if __name__ == "__main__":
     # Display OpenCL information
     controller.print_info()
 
-    # opencl_convolve(controller)
+    # Perform convolution on OpenCL
+    opencl_output, opencl_time = opencl_convolve(controller)
+
+    # Profile timings
+    logger.info(f"CPU execution time: {cpu_time:.2f} ms")
+    logger.info(f"OpenCL execution time: {opencl_time:.2f} ms")

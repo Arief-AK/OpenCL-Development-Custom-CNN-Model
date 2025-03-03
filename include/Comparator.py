@@ -8,7 +8,7 @@ class Comparator:
     def __init__(self):
         self.logger = Logger(__name__)
 
-    def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         self.logger.debug("Performing 2D convolution")
         kernel = np.flipud(np.fliplr(kernel))
 
@@ -17,6 +17,4 @@ class Comparator:
         end_time = time.time()
 
         elapsed_time = (end_time - start_time) * 1000
-        self.logger.info(f"Elapsed time: {elapsed_time:.2f} ms")
-
-        return output
+        return output, elapsed_time

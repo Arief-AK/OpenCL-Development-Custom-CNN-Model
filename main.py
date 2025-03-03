@@ -19,9 +19,3 @@ if __name__ == "__main__":
     # Perform convolution on CPU
     output = cpu_convolve(comparator)
     logger.info(f"CPU output: {output}")
-
-    # Create a context and a queue
-    # platform = cl.get_platforms()[0]
-    # device = platform.get_devices()[0]
-    # context = cl.Context([device])
-    # queue = cl.CommandQueue(context)

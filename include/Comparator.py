@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from scipy.signal import correlate2d
 
@@ -10,6 +11,12 @@ class Comparator:
     def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         self.logger.debug("Performing 2D convolution")
         kernel = np.flipud(np.fliplr(kernel))
+
+        start_time = time.time()
         output = correlate2d(image, kernel, mode='valid')
+        end_time = time.time()
+
+        elapsed_time = (end_time - start_time) * 1000
+        self.logger.info(f"Elapsed time: {elapsed_time:.2f} ms")
 
         return output

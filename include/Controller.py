@@ -11,6 +11,8 @@ class Controller:
         self.queue = cl.CommandQueue(self.context, properties=cl.command_queue_properties.PROFILING_ENABLE)
         self.logger = Logger(__name__)
 
+        self.BLOCK_SIZE = 16
+
     def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
@@ -47,7 +49,7 @@ class Controller:
     def load_program(self, program_file: str):
         with open(program_file, 'r') as f:
             program_source = f.read()
-        self.program = cl.Program(self.context, program_source).build()
+        self.program = cl.Program(self.context, program_source).build(options=[f"-DBLOCK_SIZE={self.BLOCK_SIZE}"])
 
     def print_info(self):
         self.logger.info("OpenCL Information")

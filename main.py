@@ -4,39 +4,48 @@ from include.Logger import Logger
 from include.Comparator import Comparator
 from include.Controller import Controller
 
-IMAGE_SIZE = 1024
+IMAGE_SIZE = 512
 
-def cpu_convolve(comparator: Comparator) -> np.ndarray:
-    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE)          # Random image
-    kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]]) # Simple Sobel operator
-    output = comparator.convolve2d(image, kernel)           # Perform convolution with Sobel-edge
+def Benchmark(controller: Controller, comparator: Comparator, function:str, logger:Logger):
+    # Initialise variables
+    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)   # Random image
 
-    return output
+    # Perform function on CPU and OpenCL
+    if function == "Convolution":
+        logger.info("\nPerforming 2D convolution")
+        controller.load_program("kernels/convolution.cl")
+        controller._get_program_info()
 
-def opencl_convolve(controller: Controller) -> tuple:
-    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)           # Random image
-    kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)   # Simple Sobel operator
+        kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])         # Simple Sobel operator
+        cpu_output, cpu_time = comparator.convolve2d(image, kernel)
+        logger.info(f"Performed {function} on CPU")
+        opencl_output, opencl_time = controller.convolve2d(image, kernel)
+        logger.info(f"Performed {function} with OpenCL")
+    elif function == "MaxPooling":
+        logger.info("\nPerforming 2D max pooling")
+        controller.load_program("kernels/max_pooling.cl")
+        controller._get_program_info()
 
-    return controller.convolve2d(image, kernel)
+        cpu_output, cpu_time = comparator.max_pooling2d(image, 2)
+        logger.info(f"Performed {function} on CPU")
+        opencl_output, opencl_time = controller.max_pooling2d(image, 2)
+        logger.info(f"Performed {function} with OpenCL")
+    else:
+        logger.error("Invalid function")
+        return exit(1)
+
+    # Profile timings
+    logger.info(f"{function} Summary:")
+    logger.info(f"CPU execution time: {cpu_time:.2f} ms")
+    logger.info(f"OpenCL execution time: {opencl_time:.2f} ms")
 
 if __name__ == "__main__":
     # Create variables
     logger = Logger(__name__)
     comparator = Comparator()
     controller = Controller()
-
-    # Perform convolution on CPU
-    cpu_output, cpu_time = cpu_convolve(comparator)
-
-    # Perform convolution on OpenCL
-    controller.load_program("kernels/convolution.cl")
-    
-    # Display OpenCL information
     controller.print_info()
 
-    # Perform convolution on OpenCL
-    opencl_output, opencl_time = opencl_convolve(controller)
-
-    # Profile timings
-    logger.info(f"CPU execution time: {cpu_time:.2f} ms")
-    logger.info(f"OpenCL execution time: {opencl_time:.2f} ms")
+    # Perform benchmarking
+    Benchmark(controller, comparator, "Convolution", logger)
+    Benchmark(controller, comparator, "MaxPooling", logger)

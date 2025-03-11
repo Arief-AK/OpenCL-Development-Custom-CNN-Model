@@ -11,7 +11,7 @@ class Controller:
         self.queue = cl.CommandQueue(self.context, properties=cl.command_queue_properties.PROFILING_ENABLE)
         self.logger = Logger(__name__)
 
-        self.BLOCK_SIZE = 16
+        self.BLOCK_SIZE = 32
 
     def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape

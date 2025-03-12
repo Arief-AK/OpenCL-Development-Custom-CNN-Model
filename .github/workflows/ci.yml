@@ -10,7 +10,7 @@ on:
 
 jobs:
     build:
-        runs-on: [linux-ubuntu]
+        runs-on: [self-hosted, Linux, X64]
         steps:
             - name: Checkout code
               uses: actions/checkout@v4

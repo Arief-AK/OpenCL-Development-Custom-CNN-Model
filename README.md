@@ -1,5 +1,7 @@
 # OpenCL Development: Custom CNN Model
 
+[![Build](https://github.com/Arief-AK/OpenCL-Development-Custom-CNN-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/Arief-AK/OpenCL-Development-Custom-CNN-Model/actions/workflows/ci.yml)
+
 Application of OpenCL for machine learning model development. This work demonstrates the development of layers for machine learning models. The outcome of this project is to produce a custom CNN machine learning model
 
 ## OpenCL setup

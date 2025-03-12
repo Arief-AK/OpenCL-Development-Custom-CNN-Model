@@ -29,4 +29,8 @@ jobs:
 
             - name: Benchmark
               run: |
-                .venv/bin/python Benchmark.py
+                .venv/bin/python benchmark.py
+
+            - name: Integration
+              run: |
+                .venv/bin/python main.py

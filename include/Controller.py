@@ -2,6 +2,7 @@ import numpy as np
 import pyopencl as cl
 
 from include.Logger import Logger
+from include.CL_CNNBuilder import CL_CNNBuilder
 
 class Controller:
     def __init__(self):
@@ -12,6 +13,19 @@ class Controller:
         self.logger = Logger(__name__)
 
         self.BLOCK_SIZE = 32
+
+    def cnn_model(self, image: np.ndarray, conv_kernel=None) -> tuple:
+        image_width, image_height = image.shape
+
+        if conv_kernel == None:
+            conv_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)  # Sharpening filter
+
+        # Build a CNN model
+        cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)
+        cnn.conv2d(conv_kernel, 3).relu().max_pool(2)
+        output = cnn.build(image)
+
+        return output, cnn.profiling_info
 
     def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape

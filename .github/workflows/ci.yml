@@ -1,0 +1,27 @@
+name: Build
+
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+
+jobs:
+    build:
+        runs-on: [linux-ubuntu]
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+
+            - name: Install dependencies
+              run: |
+                pip install -r requirements.txt
+
+            - name: Benchmark
+              run: |
+                python Benchmark.py

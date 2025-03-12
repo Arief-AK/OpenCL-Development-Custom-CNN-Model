@@ -23,7 +23,8 @@ jobs:
             - name: Install dependencies
               run: |
                 sudo apt update
-                sudo apt install -y ocl-icd-opencl-dev opencl-headers
+                sudo apt install -y ocl-icd-opencl-dev opencl-headers clinfo
+                clinfo
                 pip install -r requirements.txt
 
             - name: Benchmark

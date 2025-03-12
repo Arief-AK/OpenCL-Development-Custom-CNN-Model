@@ -1,3 +1,7 @@
+#ifndef BLOCK_SIZE
+    #define BLOCK_SIZE 32
+#endif
+
 __kernel void convolve(
     __global float* image,
     __global float* c_kernel,
@@ -9,19 +13,29 @@ __kernel void convolve(
     int x = get_global_id(0);
     int y = get_global_id(1);
 
+    // Defined local tile memory
+    __local float local_tile[BLOCK_SIZE + 2][BLOCK_SIZE + 2];
+
+    // Get local coordinates
+    int local_x = get_local_id(0);
+    int local_y = get_local_id(1);
+    
     int half_k = kernel_size / 2;
-    float sum = 0.0f;
+    
+    // Load data into local tile
+    int image_x = clamp(x - half_k, 0, img_width - 1);
+    int image_y = clamp(y - half_k, 0, img_height - 1);
+    local_tile[local_y][local_x] = image[image_y * img_width + image_x];
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     // Perform convolution within bounds
-    if(x >= half_k && x < img_width - half_k && y >= half_k && y < img_height - half_k){
-        for(int i = -half_k; i <= half_k; i++){
-            for(int j = -half_k; j <= half_k; j++){
-                int img_x = x + i;
-                int img_y = y + j;
-                int kernel_x = i + half_k;
-                int kernel_y = j + half_k;
-                
-                sum += image[img_y * img_width + img_x] * c_kernel[kernel_y * kernel_size + kernel_x];
+    float sum = 0.0f;
+    if(local_x < BLOCK_SIZE && local_y < BLOCK_SIZE){
+        for(int i = 0; i < kernel_size; i++){
+            for(int j = 0; j < kernel_size; j++){
+                int image_x = clamp(x + i - half_k, 0, img_width - 1);
+                int image_y = clamp(y + j - half_k, 0, img_height - 1);
+                sum += c_kernel[i * kernel_size + j] * image[image_y * img_width + image_x];
             }
         }
         output[y * img_width + x] = sum;

@@ -18,3 +18,40 @@ class Comparator:
 
         elapsed_time = (end_time - start_time) * 1000
         return output, elapsed_time
+    
+    def relu_activation(self, image:np.ndarray) -> tuple:
+        self.logger.debug("Performing ReLU activation")
+        
+        start_time = time.time()
+        output = np.maximum(image, 0.0)
+        end_time = time.time()
+
+        elapsed_time = (end_time - start_time) * 1000
+        return output, elapsed_time
+    
+    def max_pooling2d(self, image:np.ndarray, pool_size: int) -> tuple:
+        self.logger.debug("Performing 2D max pooling")
+        
+        start_time = time.time()
+        height, width = image.shape
+        half_p = pool_size // 2
+        
+        # Output array (same size as input for now)
+        output = np.zeros((height, width), dtype=np.float32)
+
+        for y in range(height):
+            for x in range(width):
+                max_val = 0.0
+                
+                # Apply max pooling within bounds
+                for i in range(pool_size):
+                    for j in range(pool_size):
+                        image_x = np.clip(x + i - half_p, 0, width - 1)
+                        image_y = np.clip(y + j - half_p, 0, height - 1)
+                        max_val = max(max_val, image[image_y, image_x])
+                
+                output[y, x] = max_val
+        end_time = time.time()
+        
+        elapsed_time = (end_time - start_time) * 1000
+        return output, elapsed_time

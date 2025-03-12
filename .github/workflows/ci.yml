@@ -18,6 +18,11 @@ jobs:
             - name: Setup Python
               uses: actions/setup-python@v5
 
+            - name: Setup Virtual Environment
+              run: |
+                python3 -m venv .venv
+                . .vevn/bin/activate
+
             - name: Install dependencies
               run: |
                 pip install -r requirements.txt

@@ -21,7 +21,7 @@ jobs:
             - name: Setup Virtual Environment
               run: |
                 python3 -m venv .venv
-                . .vevn/bin/activate
+                . .venv/bin/activate
 
             - name: Install dependencies
               run: |

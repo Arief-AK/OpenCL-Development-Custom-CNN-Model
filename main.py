@@ -12,7 +12,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
 
     # Perform function on CPU and OpenCL
     if function == "Convolution":
-        logger.info("\nPerforming 2D convolution")
+        logger.info("Performing 2D convolution")
         controller.load_program("kernels/convolution.cl")
         controller._get_program_info()
 
@@ -22,7 +22,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.convolve2d(image, kernel)
         logger.info(f"Performed {function} with OpenCL")
     elif function == "MaxPooling":
-        logger.info("\nPerforming 2D max pooling")
+        logger.info("Performing 2D max pooling")
         controller.load_program("kernels/max_pooling.cl")
         controller._get_program_info()
 

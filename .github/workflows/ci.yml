@@ -25,7 +25,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                .vevn/bin/pip install -r requirements.txt
+                .venv/bin/pip install -r requirements.txt
 
             - name: Benchmark
               run: |

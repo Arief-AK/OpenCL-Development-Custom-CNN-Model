@@ -14,28 +14,37 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
     if function == "Convolution":
         logger.info("Performing 2D convolution")
         controller.load_program("kernels/convolution.cl")
-        controller._get_program_info()
 
         kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])         # Simple Sobel operator
         cpu_output, cpu_time = comparator.convolve2d(image, kernel)
-        logger.info(f"Performed {function} on CPU")
+        logger.debug(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.convolve2d(image, kernel)
-        logger.info(f"Performed {function} with OpenCL")
+        logger.debug(f"Performed {function} with OpenCL")
+    
+    elif function == "ReLU":
+        logger.info("Perfoming ReLU activation")
+        controller.load_program("kernels/relu.cl")
+
+        cpu_output, cpu_time = comparator.relu_activation(image)
+        logger.debug(f"Performed {function} on CPU")
+        opencl_output, opencl_time = controller.relu_activation(image)
+        logger.debug(f"Performed {function} with OpenCL")
+
     elif function == "MaxPooling":
         logger.info("Performing 2D max pooling")
         controller.load_program("kernels/max_pooling.cl")
-        controller._get_program_info()
 
         cpu_output, cpu_time = comparator.max_pooling2d(image, 2)
-        logger.info(f"Performed {function} on CPU")
+        logger.debug(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.max_pooling2d(image, 2)
-        logger.info(f"Performed {function} with OpenCL")
+        logger.debug(f"Performed {function} with OpenCL")
+
     else:
         logger.error("Invalid function")
         return exit(1)
 
     # Profile timings
-    logger.info(f"{function} Summary:")
+    logger.info(f"********* {function} Summary *********")
     logger.info(f"CPU execution time: {cpu_time:.2f} ms")
     logger.info(f"OpenCL execution time: {opencl_time:.2f} ms")
 
@@ -47,5 +56,8 @@ if __name__ == "__main__":
     controller.print_info()
 
     # Perform benchmarking
+    logger.info(f"************ START OF BENCHMARKING ************")
     Benchmark(controller, comparator, "Convolution", logger)
+    Benchmark(controller, comparator, "ReLU", logger)
     Benchmark(controller, comparator, "MaxPooling", logger)
+    logger.info(f"************ END OF BENCHMARKING ************")

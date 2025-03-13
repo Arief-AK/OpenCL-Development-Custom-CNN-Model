@@ -32,3 +32,8 @@ To run the benchmarking of layer models, run the following command.
 ```shell
 python Benchmark.py
 ```
+
+To run the model, run the following command
+```shell
+python main.py
+```

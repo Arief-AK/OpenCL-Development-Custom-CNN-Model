@@ -2,6 +2,7 @@ import numpy as np
 import pyopencl as cl
 
 from include.Logger import Logger
+from include.Visualiser import Visualiser
 from include.CL_CNNBuilder import CL_CNNBuilder
 
 class Controller:
@@ -10,9 +11,19 @@ class Controller:
         self.device = self.platform.get_devices()[0]
         self.context = cl.Context([self.device])
         self.queue = cl.CommandQueue(self.context, properties=cl.command_queue_properties.PROFILING_ENABLE)
+        
+        self.BLOCK_SIZE = 32
+
+        self.visualiser = Visualiser()
         self.logger = Logger(__name__)
 
-        self.BLOCK_SIZE = 32
+    def visualise_model_layer(self, layer, shape):
+        # Get feature maps (tensor) from buffers of layers
+        layer_list = self.cnn.get_tensor(f"{layer}", shape)
+
+        # Visualise each layer
+        for tensor in layer_list:
+            self.visualiser.visualise_feature_maps(tensor,num_filters=8)
 
     def cnn_model(self, image: np.ndarray, conv_kernel=None) -> tuple:
         image_width, image_height = image.shape
@@ -21,13 +32,13 @@ class Controller:
             conv_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)  # Sharpening filter
 
         # Build a CNN model
-        cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)
-        cnn.conv2d(conv_kernel, 3).relu().max_pool(2)
-        output = cnn.build(image)
+        self.cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)
+        self.cnn.conv2d(conv_kernel, 3).relu().max_pool(2)
+        output = self.cnn.build(image)
 
-        return output, cnn.profiling_info
+        return output, self.cnn.profiling_info
 
-    def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
+    def bench_convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
         output = np.zeros_like(image)
@@ -60,7 +71,7 @@ class Controller:
         elapsed_time = (event.profile.end - event.profile.start) / 1e6
         return output, elapsed_time
     
-    def relu_activation(self, image:np.ndarray) -> tuple:
+    def bench_relu_activation(self, image:np.ndarray) -> tuple:
         image_width, image_height = image.shape
         size = image.size
         output = np.zeros_like(image)
@@ -88,7 +99,7 @@ class Controller:
         elapsed_time = (event.profile.end - event.profile.start) / 1e6
         return output, elapsed_time
     
-    def max_pooling2d(self, image: np.ndarray, pool_size: int) -> tuple:
+    def bench_max_pooling2d(self, image: np.ndarray, pool_size: int) -> tuple:
         image_width, image_height = image.shape
         output = np.zeros_like(image)
 

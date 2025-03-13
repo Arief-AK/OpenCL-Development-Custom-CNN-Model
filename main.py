@@ -1,12 +1,19 @@
+import cv2
 import numpy as np
 
 from include.Logger import Logger
 from include.Controller import Controller
+from include.Visualiser import Visualiser
 
-IMAGE_SIZE = 1024
+def LoadImage(visualiser: Visualiser) -> np.ndarray:
+    image = cv2.imread("images/sample.jpg", cv2.IMREAD_GRAYSCALE)
+    image_tensor = image.astype(np.float32) / 255.0 # Normalise
 
-def RunModel(controller: Controller, logger:Logger):
-    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)   # Random image
+    visualiser.visualise_output(image_tensor, "Original-Image")
+    return image_tensor
+
+def CNNModel(controller: Controller, visualiser: Visualiser, logger:Logger):
+    image = LoadImage(visualiser)
     
     controller.load_program("kernels/cnn_model.cl")
     output, profiling_info = controller.cnn_model(image)
@@ -14,9 +21,14 @@ def RunModel(controller: Controller, logger:Logger):
     for layer, time in profiling_info.items():
         logger.info(f"{layer}: {time:.3f} ms")
 
+    visualiser.visualise_output(output, "Complete Output")
+    visualiser.plot_profiling(profiling_info)
+
 if __name__ == "__main__":
     logger = Logger(__name__)
     controller = Controller()
+    visualiser = Visualiser()
     controller.print_info()
 
-    RunModel(controller, logger)
+    CNNModel(controller, visualiser, logger)
+    logger.info("Done!")

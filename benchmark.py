@@ -18,7 +18,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])         # Simple Sobel operator
         cpu_output, cpu_time = comparator.convolve2d(image, kernel)
         logger.debug(f"Performed {function} on CPU")
-        opencl_output, opencl_time = controller.convolve2d(image, kernel)
+        opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
         logger.debug(f"Performed {function} with OpenCL")
     
     elif function == "ReLU":
@@ -27,7 +27,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
 
         cpu_output, cpu_time = comparator.relu_activation(image)
         logger.debug(f"Performed {function} on CPU")
-        opencl_output, opencl_time = controller.relu_activation(image)
+        opencl_output, opencl_time = controller.bench_relu_activation(image)
         logger.debug(f"Performed {function} with OpenCL")
 
     elif function == "MaxPooling":
@@ -36,7 +36,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
 
         cpu_output, cpu_time = comparator.max_pooling2d(image, 2)
         logger.debug(f"Performed {function} on CPU")
-        opencl_output, opencl_time = controller.max_pooling2d(image, 2)
+        opencl_output, opencl_time = controller.bench_max_pooling2d(image, 2)
         logger.debug(f"Performed {function} with OpenCL")
 
     else:

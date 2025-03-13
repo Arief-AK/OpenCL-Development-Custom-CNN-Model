@@ -14,6 +14,14 @@ class CL_CNNBuilder:
 
         self.layers = []
         self.buffers = []
+        
+        self.num_layers = {
+            "Convolution": 0,
+            "ReLU": 0,
+            "Max-Pooling": 0
+        }
+
+        self.layer_buffers = {}
         self.profiling_info = {}
 
         self.logger = Logger(__name__)
@@ -28,6 +36,15 @@ class CL_CNNBuilder:
         self.queue.finish()
         exec_time = (event.profile.end - event.profile.start) / 1e6
         self.profiling_info.update({layer_name:exec_time})
+
+    def _store_layer_buffer_info(self, layer:str, buffer):
+        # Store to layer and buffer dictionary
+        current_num_layers = self.num_layers[f"{layer}"]
+        self.layer_buffers.update({f"{layer}_{current_num_layers}": buffer})
+        
+        # Perform housekeeping
+        new_num_layers = current_num_layers + 1
+        self.num_layers.update({f"{layer}":new_num_layers})
 
     def conv2d(self, kernel, kernel_size):
         # Add convolution layer
@@ -53,6 +70,7 @@ class CL_CNNBuilder:
             event.wait()
 
             self._record_time(event, "Convolution")
+            self._store_layer_buffer_info("Convolution", output_buffer)
             return output_buffer
         
         self.layers.append(conv_layer)
@@ -75,6 +93,7 @@ class CL_CNNBuilder:
             event.wait()
 
             self._record_time(event, "ReLU")
+            self._store_layer_buffer_info("ReLU", input_buffer)
             return input_buffer
         
         self.layers.append(relu_layer)
@@ -103,6 +122,7 @@ class CL_CNNBuilder:
             event.wait()
             
             self._record_time(event, "Max-Pooling")
+            self._store_layer_buffer_info("Max-Pooling", output_buffer)
             return output_buffer
         
         self.layers.append(max_pool_layer)
@@ -129,3 +149,19 @@ class CL_CNNBuilder:
         self.logger.debug("Succesfully copied to output image")
         
         return output
+    
+    def get_tensor(self, layer, shape) -> list:
+        # Initialise output list
+        output_tensor_list = []
+        
+        # Copies OpenCL buffer to Numpy array for visualisation
+
+        # Get the buffers from dictionary
+        current_num_layers = self.num_layers[f"{layer}"]
+        for index in range(current_num_layers):
+            buffer = self.layer_buffers[f"{layer}_{index}"]
+            output_tensor = np.zeros_like(buffer)
+            cl.enqueue_copy(self.queue, output_tensor, buffer).wait()
+            output_tensor_list.append(output_tensor)
+
+        return output_tensor_list

@@ -55,6 +55,10 @@ class CL_CNNBuilder:
             output_buffer = self._create_buffer((self.height, self.width))
             kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
 
+            # Calculate output dimensions
+            output_height = self.height - kernel_size + 1
+            output_width = self.width - kernel_size + 1
+            
             # Set kernel arguments
             kernel_func = self.program.convolve
             kernel_func.set_arg(0, input_buffer)
@@ -65,7 +69,7 @@ class CL_CNNBuilder:
             kernel_func.set_arg(5, np.int32(kernel_size))
 
             # Execute kernel
-            global_size = (self.width, self.height)
+            global_size = (output_width, output_height)
             event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
             event.wait()
 
@@ -79,17 +83,24 @@ class CL_CNNBuilder:
     
     def relu(self):
         # Add ReLU activation layer
-        def relu_layer(input_buffer):
-            size = input_buffer.size
+        def relu_layer(input_data):
+            mf = cl.mem_flags
+            size = input_data.size
+
+            # Create buffers
+            output_buffer = self._create_buffer((self.height, self.width))
+            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_data)
 
             # Set kernel arguments
             kernel_func = self.program.relu_activation
             kernel_func.set_arg(0, input_buffer)
-            kernel_func.set_arg(1, np.int32(size))
+            kernel_func.set_arg(1, output_buffer)
+            kernel_func.set_arg(2, np.int32(size))
 
             # Execute kernel
-            global_size = (self.width, self.height)
-            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+            global_size = (self.width, self.height)  # Maintain 2D structure
+            local_size = (min(self.BLOCK_SIZE, self.width), min(self.BLOCK_SIZE, self.height))
+            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, local_size)
             event.wait()
 
             self._record_time(event, "ReLU")

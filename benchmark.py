@@ -21,10 +21,10 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
         logger.debug(f"Performed {function} with OpenCL")
 
-        # if np.allclose(cpu_output, opencl_output, atol=1e-5):
-        #     logger.info("✅ OpenCL and CPU results match closely!")
-        # else:
-        #     logger.warning("❌ Significant differences detected!")
+        if np.allclose(cpu_output, opencl_output, atol=1e-5):
+            logger.info("✅ OpenCL and CPU results match closely!")
+        else:
+            logger.warning("❌ Significant differences detected!")
     
     elif function == "ReLU":
         logger.info("Perfoming ReLU activation")

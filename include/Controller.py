@@ -41,7 +41,10 @@ class Controller:
     def bench_convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
-        output = np.zeros_like(image)
+
+        # Compute valid output size
+        output_size = (image_width - kernel_size + 1, image_height - kernel_size + 1)
+        output = np.zeros(output_size,dtype=np.float32)
 
         # Create buffers
         mf = cl.mem_flags

@@ -39,18 +39,32 @@ class Controller:
         return output, self.cnn.profiling_info
 
     def bench_convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
+        # Validate inputs
+        if image is None or kernel is None:
+            raise ValueError("Image and kernel must not be None")
+            
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
+        
+        if kernel.shape[0] != kernel.shape[1]:
+            raise ValueError("Kernel must be square")
+            
+        if image_width < kernel_size or image_height < kernel_size:
+            raise ValueError("Image dimensions must be larger than kernel size")
 
-        # Compute valid output size
-        output_size = (image_width - kernel_size + 1, image_height - kernel_size + 1)
-        output = np.zeros(output_size,dtype=np.float32)
+        # Calculate output dimensions
+        output_height = image_height - kernel_size + 1
+        output_width = image_width - kernel_size + 1
+        output = np.zeros((output_height, output_width), dtype=np.float32)
 
-        # Create buffers
+        # Create buffers with proper flags
         mf = cl.mem_flags
-        image_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
-        kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
-        output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
+        try:
+            image_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
+            kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
+            output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
+        except cl.MemoryError:
+            raise RuntimeError("Failed to allocate OpenCL buffers")
 
         # Set kernel arguments
         kernel_func = self.program.convolve
@@ -61,8 +75,8 @@ class Controller:
         kernel_func.set_arg(4, np.int32(image_height))
         kernel_func.set_arg(5, np.int32(kernel_size))
 
-        # Execute kernel
-        global_size = (image_width, image_height)
+        # Execute kernel with correct output size
+        global_size = (output_width, output_height)
         event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
         event.wait()
 

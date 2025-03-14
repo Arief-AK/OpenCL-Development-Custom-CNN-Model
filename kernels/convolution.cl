@@ -12,26 +12,25 @@ __kernel void convolve(
 {
     int x = get_global_id(0);
     int y = get_global_id(1);
-
-    int half_k = kernel_size / 2;
-
-    // Process valid regions
-    if(x >= half_k && x < img_width - half_k && y >= img_height - half_k){
-        float sum = 0.0f;
-
-        // Convolve
-        for(int i = 0; i < kernel_size; i++){
-            for(int j = 0; j < kernel_size; j++){
-                int image_x = x + i - half_k;
-                int image_y = y + j - half_k;
-                sum += c_kernel[i * kernel_size +j] * image[image_y * img_width + image_x];
-            }
-        }
     
-        // Store in valid output region
-        int valid_x = x - half_k;
-        int valid_y = y - half_k;
-        int valid_width = img_width - kernel_size + 1;
-        output[valid_y * valid_width + valid_x] = sum;
+    // Calculate output dimensions
+    int out_width = img_width - kernel_size + 1;
+    int out_height = img_height - kernel_size + 1;
+    
+    // Check bounds
+    if (x >= out_width || y >= out_height) {
+        return;
     }
+
+    float sum = 0.0f;
+    
+    // Perform convolution
+    for(int i = 0; i < kernel_size; i++) {
+        for(int j = 0; j < kernel_size; j++) {
+            sum += c_kernel[i * kernel_size + j] * 
+                   image[(y + i) * img_width + (x + j)];
+        }
+    }
+
+    output[y * out_width + x] = sum;
 }

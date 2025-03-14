@@ -5,6 +5,22 @@ from include.Comparator import Comparator
 from include.Controller import Controller
 
 IMAGE_SIZE = 512
+SHOW_DEBUG_MSG = True
+
+def validate_input(array: np.ndarray, name: str, logger: Logger) -> bool:
+    if array is None:
+        logger.error(f"{name} is None")
+        return False
+    if not isinstance(array, np.ndarray):
+        logger.error(f"{name} must be a numpy array")
+        return False
+    if not array.dtype == np.float32:
+        logger.error(f"{name} must be float32, got {array.dtype}")
+        return False
+    if np.isnan(array).any() or np.isinf(array).any():
+        logger.error(f"{name} contains NaN or Inf values")
+        return False
+    return True
 
 def compare(opencl_output: np.ndarray, cpu_output: np.ndarray, logger: Logger):
     if np.isnan(opencl_output).any() or np.isinf(opencl_output).any():
@@ -16,32 +32,37 @@ def compare(opencl_output: np.ndarray, cpu_output: np.ndarray, logger: Logger):
             logger.error("❌ Significant differences detected!")
 
 def Benchmark(controller: Controller, comparator: Comparator, function:str, logger:Logger):
-    # Initialise variables
-    #image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)   # Random image
-    image = np.array([
-        [1, 2, 3, 4, 5],
-        [6, 7, 8, 9, 10],
-        [11, 12, 13, 14, 15],
-        [16, 17, 18, 19, 20],
-        [21, 22, 23, 24, 25]
-    ], dtype=np.float32)
+    # Initialise variables with explicit float32 type and validation
+    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)
 
-    indices = [(0, 0), (1, 1), (2, 2)]
+    if not validate_input(image, "image", logger):
+        return
+
+    indices = [(0, 0), (0,1) , (1, 0), (1, 1), (2, 0), (2, 1)]
 
     # Perform function on CPU and OpenCL
     if function == "Convolution":
         logger.info("Performing 2D convolution")
         controller.load_program("kernels/convolution.cl")
 
-        kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])         # Simple Sobel operator
-        cpu_output, cpu_time = comparator.convolve2d(image, kernel)
-        logger.debug(f"Performed {function} on CPU")
-        opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
-        logger.debug(f"Performed {function} with OpenCL")
+        kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)
+        if not validate_input(kernel, "kernel", logger):
+            return
 
-        for idx in indices:
-            i, j = idx
-            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
+        # Log array shapes and data types
+        if SHOW_DEBUG_MSG:
+            logger.debug(f"Image shape: {image.shape}, dtype: {image.dtype}")
+            logger.debug(f"Kernel shape: {kernel.shape}, dtype: {kernel.dtype}")
+
+        cpu_output, cpu_time = comparator.convolve2d(image, kernel)
+        logger.info(f"Performed {function} on CPU")
+        opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
+        logger.info(f"Performed {function} with OpenCL")
+
+        if SHOW_DEBUG_MSG:
+            for idx in indices:
+                i, j = idx
+                logger.debug(f"CPU[{i}, {j}]: {cpu_output[i, j]:.4f}, OpenCL[{i}, {j}]: {opencl_output[i, j]:.4f}")
 
         compare(opencl_output, cpu_output, logger)
     
@@ -49,14 +70,18 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         logger.info("Perfoming ReLU activation")
         controller.load_program("kernels/relu.cl")
 
-        cpu_output, cpu_time = comparator.relu_activation(image)
-        logger.debug(f"Performed {function} on CPU")
-        opencl_output, opencl_time = controller.bench_relu_activation(image)
-        logger.debug(f"Performed {function} with OpenCL")
+        if SHOW_DEBUG_MSG:
+            logger.debug(f"Image shape: {image.shape}, dtype: {image.dtype}")
 
-        for idx in indices:
-            i, j = idx
-            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
+        cpu_output, cpu_time = comparator.relu_activation(image)
+        logger.info(f"Performed {function} on CPU")
+        opencl_output, opencl_time = controller.bench_relu_activation(image)
+        logger.info(f"Performed {function} with OpenCL")
+
+        if SHOW_DEBUG_MSG:
+            for idx in indices:
+                i, j = idx
+                logger.debug(f"CPU[{i}, {j}]: {cpu_output[i, j]:.4f}, OpenCL[{i}, {j}]: {opencl_output[i, j]:.4f}")
 
         compare(opencl_output, cpu_output, logger)
 
@@ -64,14 +89,18 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         logger.info("Performing 2D max pooling")
         controller.load_program("kernels/max_pooling.cl")
 
+        if SHOW_DEBUG_MSG:
+            logger.debug(f"Image shape: {image.shape}, dtype: {image.dtype}")
+
         cpu_output, cpu_time = comparator.max_pooling2d(image, 2)
         logger.debug(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.bench_max_pooling2d(image, 2)
         logger.debug(f"Performed {function} with OpenCL")
 
-        for idx in indices:
-            i, j = idx
-            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
+        if SHOW_DEBUG_MSG:
+            for idx in indices:
+                i, j = idx
+                logger.debug(f"CPU[{i}, {j}]: {cpu_output[i, j]:.4f}, OpenCL[{i}, {j}]: {opencl_output[i, j]:.4f}")
 
         compare(opencl_output, cpu_output, logger)
 
@@ -90,10 +119,6 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         logger.info(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.bench_dense(input_data, weights, bias, input_size, output_size)
         logger.info(f"Peformed {function} with OpenCL")
-
-        # for idx in indices:
-        #     i, j = idx
-        #     print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
         
         compare(opencl_output, cpu_output, logger)
 

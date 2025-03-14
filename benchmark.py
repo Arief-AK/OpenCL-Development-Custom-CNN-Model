@@ -6,9 +6,25 @@ from include.Controller import Controller
 
 IMAGE_SIZE = 512
 
+def compare(opencl_output: np.ndarray, cpu_output: np.ndarray, logger: Logger):
+    if np.isnan(opencl_output).any() or np.isinf(opencl_output).any():
+        logger.warning("⚠️ Warning: OpenCL output contains NaNs or Infs!")
+    else:
+        if np.allclose(cpu_output, opencl_output, atol=1e-5):
+            logger.info("✅ OpenCL and CPU results match closely!")
+        else:
+            logger.error("❌ Significant differences detected!")
+
 def Benchmark(controller: Controller, comparator: Comparator, function:str, logger:Logger):
     # Initialise variables
-    image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)   # Random image
+    #image = np.random.rand(IMAGE_SIZE, IMAGE_SIZE).astype(np.float32)   # Random image
+    image = np.array([
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25]
+    ], dtype=np.float32)
 
     # Perform function on CPU and OpenCL
     if function == "Convolution":
@@ -21,10 +37,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
         logger.debug(f"Performed {function} with OpenCL")
 
-        if np.allclose(cpu_output, opencl_output, atol=1e-5):
-            logger.info("✅ OpenCL and CPU results match closely!")
-        else:
-            logger.warning("❌ Significant differences detected!")
+        compare(opencl_output, cpu_output, logger)
     
     elif function == "ReLU":
         logger.info("Perfoming ReLU activation")
@@ -35,10 +48,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_relu_activation(image)
         logger.debug(f"Performed {function} with OpenCL")
 
-        if np.allclose(cpu_output, opencl_output, atol=1e-5):
-            logger.info("✅ OpenCL and CPU results match closely!")
-        else:
-            logger.warning("❌ Significant differences detected!")
+        compare(opencl_output, cpu_output, logger)
 
     elif function == "MaxPooling":
         logger.info("Performing 2D max pooling")
@@ -49,10 +59,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_max_pooling2d(image, 2)
         logger.debug(f"Performed {function} with OpenCL")
 
-        if np.allclose(cpu_output, opencl_output, atol=1e-5):
-            logger.info("✅ OpenCL and CPU results match closely!")
-        else:
-            logger.warning("❌ Significant differences detected!")
+        compare(opencl_output, cpu_output, logger)
 
     elif function == "Dense":
         logger.info("Performing Dense")
@@ -70,10 +77,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_dense(input_data, weights, bias, input_size, output_size)
         logger.info(f"Peformed {function} with OpenCL")
 
-        if np.allclose(cpu_output, opencl_output, atol=1e-5):
-            logger.info("✅ OpenCL and CPU results match closely!")
-        else:
-            logger.warning("❌ Significant differences detected!")
+        compare(opencl_output, cpu_output, logger)
 
     else:
         logger.error("Invalid function")

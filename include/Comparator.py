@@ -55,3 +55,13 @@ class Comparator:
         
         elapsed_time = (end_time - start_time) * 1000
         return output, elapsed_time
+    
+    def dense(self, image: np.ndarray, weights:np.ndarray, bias:np.ndarray) -> tuple:
+        self.logger.debug("Performing dense layer")
+
+        start_time = time.time()
+        output = np.dot(weights, image) + bias
+        end_time = time.time()
+
+        elapsed_time = (end_time - start_time) * 1000
+        return output, elapsed_time

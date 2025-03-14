@@ -128,6 +128,39 @@ class Controller:
         # Measure execution time
         elapsed_time = (event.profile.end - event.profile.start) / 1e6
         return output, elapsed_time
+    
+    def bench_dense(self, image: np.ndarray, weights:np.ndarray, bias:np.ndarray, input_size: int, output_size: int) -> tuple:
+        output = np.zeros_like(image)
+
+        # Create buffers
+        mf = cl.mem_flags
+        input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
+        weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weights)
+        bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias)
+        output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, bias.nbytes)
+
+        # Set kernel arguments
+        kernel_func = self.program.dense
+        kernel_func.set_arg(0, input_buffer)
+        kernel_func.set_arg(1, weights_buffer)
+        kernel_func.set_arg(2, bias_buffer)
+        kernel_func.set_arg(3, output_buffer)
+        kernel_func.set_arg(4, np.int32(input_size))
+        kernel_func.set_arg(5, np.int32(output_size))
+
+        # Execute kernel
+        global_size = (output_size,)
+        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+        event.wait()
+
+        # Retrieve results
+        output = np.empty(output_size, dtype=np.float32)
+        cl.enqueue_copy(self.queue, output, output_buffer)
+        self.queue.finish()
+
+        # Measure execution time
+        elapsed_time = (event.profile.end - event.profile.start) / 1e6
+        return output, elapsed_time
 
     def load_program(self, program_file: str):
         with open(program_file, 'r') as f:

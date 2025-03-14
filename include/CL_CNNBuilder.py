@@ -129,6 +129,39 @@ class CL_CNNBuilder:
         self.logger.debug("Added max pooling layer")
         return self
     
+    def dense(self, weight_vector, bias_vector, input_size, output_size):
+        def layer(input_vector):
+            mf = cl.mem_flags
+
+            # Create buffers
+            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_vector)
+            weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weight_vector)
+            bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias_vector)
+            #output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, input_vector.nbytes)
+            output_buffer = self._create_buffer(input_vector.nbytes)
+
+            # Set kernel arguments
+            kernel_func = self.program.dense
+            kernel_func.set_arg(0, input_buffer)
+            kernel_func.set_arg(1, weights_buffer)
+            kernel_func.set_arg(2, bias_buffer)
+            kernel_func.set_arg(3, output_buffer)
+            kernel_func.set_arg(4, np.int32(input_size))
+            kernel_func.set_arg(5, np.int32(output_size))
+
+            # Execute kernel
+            global_size = (output_size,)
+            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+            event.wait()
+
+            self._record_time(event, "Dense")
+            self._store_layer_buffer_info("Dense", output_buffer)
+            return output_buffer
+        
+        self.layers.append(layer)
+        self.logger.debug("Added dense layer")
+        return self
+    
     def build(self, input_image):
         # Execute all layers
         mf = cl.mem_flags

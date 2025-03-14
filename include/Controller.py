@@ -95,17 +95,19 @@ class Controller:
         
         # Create buffers
         mf = cl.mem_flags
-        image_buffer = cl.Buffer(self.context, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=image)
+        input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
         output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
 
         # Set kernel arguments
         kernel_func = self.program.relu_activation
-        kernel_func.set_arg(0, image_buffer)
-        kernel_func.set_arg(1, np.int32(size))
+        kernel_func.set_arg(0, input_buffer)
+        kernel_func.set_arg(1, output_buffer)
+        kernel_func.set_arg(2, np.int32(size))
 
-        # Execute kernel
-        global_size = (image_width, image_height)
-        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+        # Execute kernel with proper 2D size 
+        global_size = (image_width, image_height)  # Maintain 2D structure
+        local_size = (min(self.BLOCK_SIZE, image_width), min(self.BLOCK_SIZE, image_height))
+        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, local_size)
         event.wait()
 
         # Retrieve results

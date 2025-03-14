@@ -5,7 +5,7 @@ from include.Comparator import Comparator
 from include.Controller import Controller
 
 IMAGE_SIZE = 512
-SHOW_DEBUG_MSG = True
+SHOW_DEBUG_MSG = False
 
 def validate_input(array: np.ndarray, name: str, logger: Logger) -> bool:
     if array is None:
@@ -38,6 +38,7 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
     if not validate_input(image, "image", logger):
         return
 
+    # Indices for debugging
     indices = [(0, 0), (0,1) , (1, 0), (1, 1), (2, 0), (2, 1)]
 
     # Perform function on CPU and OpenCL

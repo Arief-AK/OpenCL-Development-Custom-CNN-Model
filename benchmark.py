@@ -26,6 +26,8 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         [21, 22, 23, 24, 25]
     ], dtype=np.float32)
 
+    indices = [(0, 0), (1, 1), (2, 2)]
+
     # Perform function on CPU and OpenCL
     if function == "Convolution":
         logger.info("Performing 2D convolution")
@@ -36,6 +38,10 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         logger.debug(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.bench_convolve2d(image, kernel)
         logger.debug(f"Performed {function} with OpenCL")
+
+        for idx in indices:
+            i, j = idx
+            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
 
         compare(opencl_output, cpu_output, logger)
     
@@ -48,6 +54,10 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_relu_activation(image)
         logger.debug(f"Performed {function} with OpenCL")
 
+        for idx in indices:
+            i, j = idx
+            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
+
         compare(opencl_output, cpu_output, logger)
 
     elif function == "MaxPooling":
@@ -58,6 +68,10 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         logger.debug(f"Performed {function} on CPU")
         opencl_output, opencl_time = controller.bench_max_pooling2d(image, 2)
         logger.debug(f"Performed {function} with OpenCL")
+
+        for idx in indices:
+            i, j = idx
+            print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
 
         compare(opencl_output, cpu_output, logger)
 
@@ -77,6 +91,10 @@ def Benchmark(controller: Controller, comparator: Comparator, function:str, logg
         opencl_output, opencl_time = controller.bench_dense(input_data, weights, bias, input_size, output_size)
         logger.info(f"Peformed {function} with OpenCL")
 
+        # for idx in indices:
+        #     i, j = idx
+        #     print(f"CPU[{i}, {j}]: {cpu_output[i, j]}, OpenCL[{i}, {j}]: {opencl_output[i, j]}")
+        
         compare(opencl_output, cpu_output, logger)
 
     else:

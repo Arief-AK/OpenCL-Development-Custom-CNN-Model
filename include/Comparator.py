@@ -13,7 +13,7 @@ class Comparator:
         kernel = np.flipud(np.fliplr(kernel))
 
         start_time = time.time()
-        output = correlate2d(image, kernel, mode='valid')
+        output = correlate2d(image, kernel, mode='valid', boundary='fill', fillvalue=0)
         end_time = time.time()
 
         elapsed_time = (end_time - start_time) * 1000

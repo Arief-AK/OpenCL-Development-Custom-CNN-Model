@@ -10,12 +10,29 @@ class Comparator:
 
     def convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         self.logger.debug("Performing 2D convolution")
-        kernel = np.flipud(np.fliplr(kernel))
-
+        
         start_time = time.time()
-        output = correlate2d(image, kernel, mode='valid')
+        height, width = image.shape
+        k_height, k_width = kernel.shape
+        half_kh, half_kw = k_height // 2, k_width // 2
+        
+        # Calculate output dimensions
+        out_height = height - k_height + 1
+        out_width = width - k_width + 1
+        
+        # Initialize output with correct size
+        output = np.zeros((out_height, out_width), dtype=np.float32)
+        
+        # Manual convolution with correct output size
+        for y in range(out_height):
+            for x in range(out_width):
+                sum_val = 0.0
+                for i in range(k_height):
+                    for j in range(k_width):
+                        sum_val += kernel[i, j] * image[y + i, x + j]
+                output[y, x] = sum_val
+        
         end_time = time.time()
-
         elapsed_time = (end_time - start_time) * 1000
         return output, elapsed_time
     
@@ -53,5 +70,15 @@ class Comparator:
                 output[y, x] = max_val
         end_time = time.time()
         
+        elapsed_time = (end_time - start_time) * 1000
+        return output, elapsed_time
+    
+    def dense(self, image: np.ndarray, weights:np.ndarray, bias:np.ndarray) -> tuple:
+        self.logger.debug("Performing dense layer")
+
+        start_time = time.time()
+        output = np.dot(weights, image) + bias
+        end_time = time.time()
+
         elapsed_time = (end_time - start_time) * 1000
         return output, elapsed_time

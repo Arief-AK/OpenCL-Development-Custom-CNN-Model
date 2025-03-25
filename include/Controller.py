@@ -29,7 +29,7 @@ class Controller:
         image_width, image_height = image.shape
 
         if conv_kernel == None:
-            conv_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)  # Sharpening filter
+            conv_kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)  # Sobel-edge filter
 
         # Build a CNN model
         self.cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)
@@ -39,15 +39,32 @@ class Controller:
         return output, self.cnn.profiling_info
 
     def bench_convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
+        # Validate inputs
+        if image is None or kernel is None:
+            raise ValueError("Image and kernel must not be None")
+            
         image_width, image_height = image.shape
         kernel_size = kernel.shape[0]
-        output = np.zeros_like(image)
+        
+        if kernel.shape[0] != kernel.shape[1]:
+            raise ValueError("Kernel must be square")
+            
+        if image_width < kernel_size or image_height < kernel_size:
+            raise ValueError("Image dimensions must be larger than kernel size")
 
-        # Create buffers
+        # Calculate output dimensions
+        output_height = image_height - kernel_size + 1
+        output_width = image_width - kernel_size + 1
+        output = np.zeros((output_height, output_width), dtype=np.float32)
+
+        # Create buffers with proper flags
         mf = cl.mem_flags
-        image_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
-        kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
-        output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
+        try:
+            image_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
+            kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
+            output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
+        except cl.MemoryError:
+            raise RuntimeError("Failed to allocate OpenCL buffers")
 
         # Set kernel arguments
         kernel_func = self.program.convolve
@@ -58,8 +75,8 @@ class Controller:
         kernel_func.set_arg(4, np.int32(image_height))
         kernel_func.set_arg(5, np.int32(kernel_size))
 
-        # Execute kernel
-        global_size = (image_width, image_height)
+        # Execute kernel with correct output size
+        global_size = (output_width, output_height)
         event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
         event.wait()
 
@@ -78,17 +95,19 @@ class Controller:
         
         # Create buffers
         mf = cl.mem_flags
-        image_buffer = cl.Buffer(self.context, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=image)
+        input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
         output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output.nbytes)
 
         # Set kernel arguments
         kernel_func = self.program.relu_activation
-        kernel_func.set_arg(0, image_buffer)
-        kernel_func.set_arg(1, np.int32(size))
+        kernel_func.set_arg(0, input_buffer)
+        kernel_func.set_arg(1, output_buffer)
+        kernel_func.set_arg(2, np.int32(size))
 
-        # Execute kernel
-        global_size = (image_width, image_height)
-        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+        # Execute kernel with proper 2D size 
+        global_size = (image_width, image_height)  # Maintain 2D structure
+        local_size = (min(self.BLOCK_SIZE, image_width), min(self.BLOCK_SIZE, image_height))
+        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, local_size)
         event.wait()
 
         # Retrieve results
@@ -122,6 +141,39 @@ class Controller:
         event.wait()
 
         # Retrieve results
+        cl.enqueue_copy(self.queue, output, output_buffer)
+        self.queue.finish()
+
+        # Measure execution time
+        elapsed_time = (event.profile.end - event.profile.start) / 1e6
+        return output, elapsed_time
+    
+    def bench_dense(self, image: np.ndarray, weights:np.ndarray, bias:np.ndarray, input_size: int, output_size: int) -> tuple:
+        output = np.zeros_like(image)
+
+        # Create buffers
+        mf = cl.mem_flags
+        input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=image)
+        weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weights)
+        bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias)
+        output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, bias.nbytes)
+
+        # Set kernel arguments
+        kernel_func = self.program.dense
+        kernel_func.set_arg(0, input_buffer)
+        kernel_func.set_arg(1, weights_buffer)
+        kernel_func.set_arg(2, bias_buffer)
+        kernel_func.set_arg(3, output_buffer)
+        kernel_func.set_arg(4, np.int32(input_size))
+        kernel_func.set_arg(5, np.int32(output_size))
+
+        # Execute kernel
+        global_size = (output_size,)
+        event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+        event.wait()
+
+        # Retrieve results
+        output = np.empty(output_size, dtype=np.float32)
         cl.enqueue_copy(self.queue, output, output_buffer)
         self.queue.finish()
 

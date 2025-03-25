@@ -55,6 +55,10 @@ class CL_CNNBuilder:
             output_buffer = self._create_buffer((self.height, self.width))
             kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
 
+            # Calculate output dimensions
+            output_height = self.height - kernel_size + 1
+            output_width = self.width - kernel_size + 1
+            
             # Set kernel arguments
             kernel_func = self.program.convolve
             kernel_func.set_arg(0, input_buffer)
@@ -65,7 +69,7 @@ class CL_CNNBuilder:
             kernel_func.set_arg(5, np.int32(kernel_size))
 
             # Execute kernel
-            global_size = (self.width, self.height)
+            global_size = (output_width, output_height)
             event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
             event.wait()
 
@@ -79,23 +83,32 @@ class CL_CNNBuilder:
     
     def relu(self):
         # Add ReLU activation layer
-        def relu_layer(input_buffer):
-            size = input_buffer.size
+        def relu_layer(input_data):
+            mf = cl.mem_flags
+            size = input_data.size
+
+            # Create buffers
+            if isinstance(input_data, cl.Buffer):
+                input_buffer = input_data
+            else:
+                input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_data)
+            output_buffer = self._create_buffer((self.height, self.width))
 
             # Set kernel arguments
             kernel_func = self.program.relu_activation
             kernel_func.set_arg(0, input_buffer)
-            kernel_func.set_arg(1, np.int32(size))
+            kernel_func.set_arg(1, output_buffer)
+            kernel_func.set_arg(2, np.int32(size))
 
             # Execute kernel
-            global_size = (self.width, self.height)
+            global_size = (self.width, self.height)  # Maintain 2D structure
             event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
             event.wait()
 
             self._record_time(event, "ReLU")
-            self._store_layer_buffer_info("ReLU", input_buffer)
-            return input_buffer
-        
+            self._store_layer_buffer_info("ReLU", output_buffer)
+            return output_buffer
+                
         self.layers.append(relu_layer)
         self.logger.debug("Added relu layer")
         return self
@@ -129,6 +142,38 @@ class CL_CNNBuilder:
         self.logger.debug("Added max pooling layer")
         return self
     
+    def dense(self, weight_vector, bias_vector, input_size, output_size):
+        def layer(input_vector):
+            mf = cl.mem_flags
+
+            # Create buffers
+            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_vector)
+            weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weight_vector)
+            bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias_vector)
+            output_buffer = self._create_buffer(input_vector.nbytes)
+
+            # Set kernel arguments
+            kernel_func = self.program.dense
+            kernel_func.set_arg(0, input_buffer)
+            kernel_func.set_arg(1, weights_buffer)
+            kernel_func.set_arg(2, bias_buffer)
+            kernel_func.set_arg(3, output_buffer)
+            kernel_func.set_arg(4, np.int32(input_size))
+            kernel_func.set_arg(5, np.int32(output_size))
+
+            # Execute kernel
+            global_size = (output_size,)
+            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
+            event.wait()
+
+            self._record_time(event, "Dense")
+            self._store_layer_buffer_info("Dense", output_buffer)
+            return output_buffer
+        
+        self.layers.append(layer)
+        self.logger.debug("Added dense layer")
+        return self
+    
     def build(self, input_image):
         # Execute all layers
         mf = cl.mem_flags
@@ -153,8 +198,6 @@ class CL_CNNBuilder:
     def get_tensor(self, layer, shape) -> list:
         # Initialise output list
         output_tensor_list = []
-        
-        # Copies OpenCL buffer to Numpy array for visualisation
 
         # Get the buffers from dictionary
         current_num_layers = self.num_layers[f"{layer}"]

@@ -12,43 +12,44 @@ __kernel void convolve(
 {
     int x = get_global_id(0);
     int y = get_global_id(1);
-
-    // Defined local tile memory
-    __local float local_tile[BLOCK_SIZE + 2][BLOCK_SIZE + 2];
-
-    // Get local coordinates
-    int local_x = get_local_id(0);
-    int local_y = get_local_id(1);
     
-    int half_k = kernel_size / 2;
+    // Calculate output dimensions
+    int out_width = img_width - kernel_size + 1;
+    int out_height = img_height - kernel_size + 1;
     
-    // Load data into local tile
-    int image_x = clamp(x - half_k, 0, img_width - 1);
-    int image_y = clamp(y - half_k, 0, img_height - 1);
-    local_tile[local_y][local_x] = image[image_y * img_width + image_x];
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    // Perform convolution within bounds
-    float sum = 0.0f;
-    if(local_x < BLOCK_SIZE && local_y < BLOCK_SIZE){
-        for(int i = 0; i < kernel_size; i++){
-            for(int j = 0; j < kernel_size; j++){
-                int image_x = clamp(x + i - half_k, 0, img_width - 1);
-                int image_y = clamp(y + j - half_k, 0, img_height - 1);
-                sum += c_kernel[i * kernel_size + j] * image[image_y * img_width + image_x];
-            }
-        }
-        output[y * img_width + x] = sum;
+    // Check bounds
+    if (x >= out_width || y >= out_height) {
+        return;
     }
+
+    float sum = 0.0f;
+    
+    // Perform convolution
+    for(int i = 0; i < kernel_size; i++) {
+        for(int j = 0; j < kernel_size; j++) {
+            sum += c_kernel[i * kernel_size + j] * 
+                   image[(y + i) * img_width + (x + j)];
+        }
+    }
+
+    output[y * out_width + x] = sum;
 }
 
 __kernel void relu_activation(
     __global float* input,
-    int size)
+    __global float* output,
+    const int size)
 {
-    int idx = get_global_id(0);
-    if(idx < size){
-        input[idx] = fmax(0.0f, input[idx]);
+    // Get 2D position of the thread
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int width = get_global_size(0);
+    
+    // Calculate linear index from 2D position
+    int idx = y * width + x;
+    
+    if(idx < size) {
+        output[idx] = fmax(0.0f, input[idx]);
     }
 }
 
@@ -75,5 +76,42 @@ __kernel void max_pooling(
             }
         }
         output[y * width + x] = max_val;
+    }
+}
+
+/**
+* @brief Fully-connected (dense) layer.
+         Based on the equation Y = WX + B
+
+* @param input Input vector (X)
+* @param weight Weight matrix (W)
+* @param bias Bias vector (B)
+* @param output Output vector (Y)
+* @param input_size size of the input vector
+* @param output_size size of the output vector
+
+*/
+__kernel void dense(
+    __global float* input,
+    __global float* weights,
+    __global float* bias,
+    __global float* output,
+    int input_size,
+    int output_size)
+{
+    // Work-item computes one neuron in layer
+    int neuron_idx = get_global_id(0);
+
+    if(neuron_idx < output_size){
+        // Initialise with bias
+        float sum = bias[neuron_idx];
+
+        // Calculate weighted sum with bias
+        for(int i = 0; i < input_size; i++){
+            sum += weights[neuron_idx * input_size + i] * input[i];
+        }
+
+        // Store in the output buffer
+        output[neuron_idx] = sum;
     }
 }

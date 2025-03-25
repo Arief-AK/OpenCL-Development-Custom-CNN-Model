@@ -4,10 +4,18 @@
 
 __kernel void relu_activation(
     __global float* input,
-    int size)
+    __global float* output,
+    const int size)
 {
-    int idx = get_global_id(0);
-    if(idx < size){
-        input[idx] = fmax(0.0f, input[idx]);
+    // Get 2D position of the thread
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int width = get_global_size(0);
+    
+    // Calculate linear index from 2D position
+    int idx = y * width + x;
+    
+    if(idx < size) {
+        output[idx] = fmax(0.0f, input[idx]);
     }
 }

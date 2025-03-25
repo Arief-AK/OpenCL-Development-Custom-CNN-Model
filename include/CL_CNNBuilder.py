@@ -88,8 +88,11 @@ class CL_CNNBuilder:
             size = input_data.size
 
             # Create buffers
+            if isinstance(input_data, cl.Buffer):
+                input_buffer = input_data
+            else:
+                input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_data)
             output_buffer = self._create_buffer((self.height, self.width))
-            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_data)
 
             # Set kernel arguments
             kernel_func = self.program.relu_activation
@@ -99,14 +102,13 @@ class CL_CNNBuilder:
 
             # Execute kernel
             global_size = (self.width, self.height)  # Maintain 2D structure
-            local_size = (min(self.BLOCK_SIZE, self.width), min(self.BLOCK_SIZE, self.height))
-            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, local_size)
+            event = cl.enqueue_nd_range_kernel(self.queue, kernel_func, global_size, None)
             event.wait()
 
             self._record_time(event, "ReLU")
-            self._store_layer_buffer_info("ReLU", input_buffer)
-            return input_buffer
-        
+            self._store_layer_buffer_info("ReLU", output_buffer)
+            return output_buffer
+                
         self.layers.append(relu_layer)
         self.logger.debug("Added relu layer")
         return self
@@ -148,7 +150,6 @@ class CL_CNNBuilder:
             input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_vector)
             weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weight_vector)
             bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias_vector)
-            #output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, input_vector.nbytes)
             output_buffer = self._create_buffer(input_vector.nbytes)
 
             # Set kernel arguments
@@ -197,8 +198,6 @@ class CL_CNNBuilder:
     def get_tensor(self, layer, shape) -> list:
         # Initialise output list
         output_tensor_list = []
-        
-        # Copies OpenCL buffer to Numpy array for visualisation
 
         # Get the buffers from dictionary
         current_num_layers = self.num_layers[f"{layer}"]

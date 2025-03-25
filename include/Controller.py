@@ -29,7 +29,7 @@ class Controller:
         image_width, image_height = image.shape
 
         if conv_kernel == None:
-            conv_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)  # Sharpening filter
+            conv_kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)  # Sobel-edge filter
 
         # Build a CNN model
         self.cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)

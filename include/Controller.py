@@ -31,12 +31,40 @@ class Controller:
         if conv_kernel == None:
             conv_kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)  # Sobel-edge filter
 
+        # Pre-requisites for pool layer
+        pooled_output_size = (image_width // 2) * (image_height // 2)
+        
         # Build a CNN model
         self.cnn = CL_CNNBuilder(self.context, self.queue, image_width, image_height, self.program, self.BLOCK_SIZE)
-        self.cnn.conv2d(conv_kernel, 3).relu().max_pool(2)
+        self.cnn.conv2d(conv_kernel, 3)\
+            .relu()\
+            .max_pool(2)\
+            .dense(weight_vector=np.random.rand(pooled_output_size).astype(np.float32),
+                   bias_vector=np.random.rand(1).astype(np.float32),
+                   input_size=pooled_output_size,
+                   output_size=1
+                   )
+        
+        # Run inference
         output = self.cnn.build(image)
+        self.logger.debug("CNN model built successfully!")
 
-        return output, self.cnn.profiling_info
+        # Retrieve intermediate results
+        self.logger.debug(f"conv shape: {image_height - 2}x{image_width - 2}, Total elements: {(image_height - 2) * (image_width - 2)}")
+        conv_output = self.cnn.get_tensor("Convolution", (image_height - 2, image_width - 2))
+        relu_output = self.cnn.get_tensor("ReLU", (image_width - 2, image_height - 2))
+        pool_output = self.cnn.get_tensor("Max-Pooling", (image_width // 2, image_height // 2))
+        dense_output = self.cnn.get_tensor("Dense", (1,))
+
+        # Package intermediate results
+        interim_results = {
+            "Convolution": conv_output,
+            "ReLU": relu_output,
+            "Max-Pooling": pool_output,
+            "Dense": dense_output
+        }
+
+        return (output, interim_results), (self.cnn.profiling_info)
 
     def bench_convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> tuple:
         # Validate inputs

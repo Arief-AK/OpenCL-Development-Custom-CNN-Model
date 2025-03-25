@@ -18,7 +18,8 @@ class CL_CNNBuilder:
         self.num_layers = {
             "Convolution": 0,
             "ReLU": 0,
-            "Max-Pooling": 0
+            "Max-Pooling": 0,
+            "Dense": 0
         }
 
         self.layer_buffers = {}
@@ -50,14 +51,19 @@ class CL_CNNBuilder:
         # Add convolution layer
         def conv_layer(input_buffer):
             mf = cl.mem_flags
-            
-            # Create buffers
-            output_buffer = self._create_buffer((self.height, self.width))
-            kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel)
 
             # Calculate output dimensions
             output_height = self.height - kernel_size + 1
             output_width = self.width - kernel_size + 1
+            expected_elements = output_height * output_width
+            self.logger.debug(f"Convolution Output Shape: {output_height}x{output_width}, Total Elements: {expected_elements}")
+
+            buffer_size = expected_elements * np.dtype(np.float32).itemsize
+            self.logger.debug(f"Allocating buffer with size: {buffer_size} bytes")
+
+            # Create buffers
+            output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, size=buffer_size)
+            kernel_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=kernel.astype(np.float32))
             
             # Set kernel arguments
             kernel_func = self.program.convolve
@@ -147,10 +153,16 @@ class CL_CNNBuilder:
             mf = cl.mem_flags
 
             # Create buffers
-            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_vector)
+            if isinstance(input_vector, cl.Buffer):
+                input_host = np.empty(input_size, dtype=np.float32)
+                cl.enqueue_copy(self.queue, input_host, input_vector).wait()
+            else:
+                input_host = input_vector
+
+            input_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=input_host)
             weights_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=weight_vector)
             bias_buffer = cl.Buffer(self.context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=bias_vector)
-            output_buffer = self._create_buffer(input_vector.nbytes)
+            output_buffer = cl.Buffer(self.context, mf.WRITE_ONLY, output_size * np.dtype(np.float32).itemsize)
 
             # Set kernel arguments
             kernel_func = self.program.dense
@@ -199,11 +211,35 @@ class CL_CNNBuilder:
         # Initialise output list
         output_tensor_list = []
 
+        if layer not in self.num_layers:
+            self.logger.error(f"Layer {layer} not found!")
+            raise ValueError(f"Layer {layer} not found!")
+
         # Get the buffers from dictionary
         current_num_layers = self.num_layers[f"{layer}"]
         for index in range(current_num_layers):
-            buffer = self.layer_buffers[f"{layer}_{index}"]
-            output_tensor = np.zeros_like(buffer)
+            buffer_key = f"{layer}_{index}"
+
+            if buffer_key not in self.layer_buffers:
+                self.logger.error(f"Buffer for '{buffer_key}' not found.")
+                raise ValueError(f"Buffer for '{buffer_key}' not found.")
+
+            # Get the buffer
+            buffer = self.layer_buffers[buffer_key]
+            expected_size = np.prod(shape)  # Total elements in expected output
+            
+            # Get buffer size
+            buffer_size = buffer.size // np.dtype(np.float32).itemsize  # Convert bytes to elements
+            #buffer_size = self.queue.get_info(cl.command_queue_info.DEVICE).max_work_item_sizes[0]
+
+            if expected_size != buffer_size:
+                self.logger.error(f"Mismatch: Expected {expected_size} elements, but buffer has {buffer_size} elements.")
+                #raise ValueError(f"Mismatch: Expected {expected_size} elements, but buffer has {buffer_size} elements.")
+
+            output_tensor = np.empty(shape, dtype=np.float32)
+            output_tensor = output_tensor[:expected_size]  # Trim extra elements
+
+            # Copy data from buffer to output tensor
             cl.enqueue_copy(self.queue, output_tensor, buffer).wait()
             output_tensor_list.append(output_tensor)
 

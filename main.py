@@ -16,7 +16,7 @@ def CNNModel(controller: Controller, visualiser: Visualiser, logger:Logger):
     image = LoadImage(visualiser)
     
     controller.load_program("kernels/cnn_model.cl")
-    output, profiling_info = controller.cnn_model(image)
+    (output, interim_results), (profiling_info) = controller.cnn_model(image)
 
     for layer, time in profiling_info.items():
         logger.info(f"{layer}: {time:.3f} ms")
